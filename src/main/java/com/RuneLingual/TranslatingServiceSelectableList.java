@@ -4,8 +4,10 @@ import lombok.Getter;
 
 public enum TranslatingServiceSelectableList
 {
-    GOOGLE_TRANSLATE ("google"),
-    OPENAI_GPT ("openai");
+    DeepL ("deepl"),
+    DeepL_PRO ("deepl_pro"),;
+//    GOOGLE_TRANSLATE ("google"),
+//    OPENAI_GPT ("openai");
 
     @Getter
     private final String serviceName;

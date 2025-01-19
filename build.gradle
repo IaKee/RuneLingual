@@ -29,8 +29,11 @@ dependencies {
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
-	implementation 'com.google.cloud:google-cloud-translate:2.19.0'
-	testImplementation 'junit:junit:4.12'
+	//implementation 'com.google.cloud:google-cloud-translate:2.19.0'
+	implementation 'com.h2database:h2:2.1.212'
+	implementation 'org.json:json:20200518'
+
+	testImplementation 'junit:junit:4.13.2'
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
