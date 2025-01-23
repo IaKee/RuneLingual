@@ -1,20 +1,18 @@
 package com.RuneLingual;
 
-import com.RuneLingual.ApiTranslate.*;
-import com.RuneLingual.ChatMessages.*;
-import com.RuneLingual.MouseOverlays.MouseTooltipOverlay;
-import com.RuneLingual.SQL.SqlActions;
-import com.RuneLingual.SQL.SqlQuery;
-import com.RuneLingual.Wigets.DialogTranslator;
-import com.RuneLingual.Wigets.WidgetCapture;
-import com.RuneLingual.commonFunctions.FileNameAndPath;
-import com.RuneLingual.nonLatin.*;
+import com.RuneLingual.api.*;
+import com.RuneLingual.chat.*;
+import com.RuneLingual.mouse.MouseTooltipOverlay;
+import com.RuneLingual.sql.SqlActions;
+import com.RuneLingual.sql.SqlQuery;
+import com.RuneLingual.wigets.WidgetCapture;
+import com.RuneLingual.filemanagement.FileNameAndPath;
+import com.RuneLingual.nonlatin.*;
 import com.google.inject.Provides;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import lombok.AccessLevel;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,14 +32,12 @@ import net.runelite.client.util.ImageUtil;
 import net.runelite.client.game.ChatIconManager;
 import net.runelite.client.callback.ClientThread;
 
-
 import lombok.Getter;
 
-import com.RuneLingual.SidePanelComponents.SidePanel;
-import com.RuneLingual.commonFunctions.FileActions;
-import com.RuneLingual.prepareResources.Downloader;
-import com.RuneLingual.commonFunctions.Ids;
-
+import com.RuneLingual.sidepanel.SidePanel;
+import com.RuneLingual.filemanagement.FileActions;
+import com.RuneLingual.data.Downloader;
+import com.RuneLingual.constants.Ids;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -52,12 +48,13 @@ import java.util.HashMap;
 
 @Slf4j
 @PluginDescriptor(
-        // Plugin name shown at plugin hub
-        name = "RuneLingual",
-        description = "All-in-one translation plugin for OSRS."
+    // Plugin name shown at plugin hub
+    name = "RuneLingual",
+    description = "All-in-one translation plugin for OSRS."
 )
 
-public class RuneLingualPlugin extends Plugin {
+public class RuneLingualPlugin extends Plugin
+{
     @Inject
     @Getter
     private Client client;
@@ -70,8 +67,10 @@ public class RuneLingualPlugin extends Plugin {
     @Inject
     @Getter
     private ChatIconManager chatIconManager;
+
+    // colour-char(key) <-> CharIds(val)
     @Getter
-    private HashMap<String, Integer> charIds = new HashMap<>();    // colour-char(key) <-> CharIds(val)
+    private HashMap<String, Integer> charIds = new HashMap<>();
 
     @Inject
     @Getter
@@ -155,15 +154,23 @@ public class RuneLingualPlugin extends Plugin {
 
 
     @Override
-    protected void startUp() throws Exception {
+    protected void startUp() throws Exception
+    {
         log.info("Starting...");
+
         //get selected language
         targetLanguage = config.getSelectedLanguage();
+        
         // set database URL
-        databaseUrl = "jdbc:h2:" + FileNameAndPath.getLocalBaseFolder() + File.separator + targetLanguage.getLangCode()
-                + File.separator + FileNameAndPath.getLocalSQLFileName();
+        databaseUrl = "jdbc:h2:"
+            + FileNameAndPath.getLocalBaseFolder()
+            + File.separator
+            + targetLanguage.getLangCode()
+            + File.separator
+            + FileNameAndPath.getLocalSQLFileName();
 
-        // check if online files have changed, if so download and update local files
+        // check if online files have changed
+        // if so download and update local files
         initLangFiles();
 
         //connect to database
@@ -185,125 +192,142 @@ public class RuneLingualPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onOverheadTextChanged(OverheadTextChanged event) throws Exception {
+    public void onOverheadTextChanged(OverheadTextChanged event) throws Exception
+    {
         overheadCapture.translateOverhead(event);
     }
 
     @Subscribe
-    public void onWidgetLoaded(WidgetLoaded event) {
-        if (targetLanguage == LangCodeSelectableList.ENGLISH) {
+    public void onWidgetLoaded(WidgetLoaded event)
+    {
+        if(targetLanguage == LangCodeSelectableList.ENGLISH)
+        {
             return;
         }
-        log.info("Widget loaded:" + event.getGroupId());
-//		clientThread.invokeLater(() -> {
-//			widgetCapture.translateWidget();
-//		});
+        log.info("Widget loaded: {}", event.getGroupId());
     }
 
     @Subscribe
-    private void onBeforeRender(BeforeRender event) {
-        if (targetLanguage == LangCodeSelectableList.ENGLISH) {
+    private void onBeforeRender(BeforeRender event)
+    {
+        if (targetLanguage == LangCodeSelectableList.ENGLISH)
+        {
             return;
         }
-
         chatInputRLingual.updateChatInput();
 
-
-        //clientThread.invokeLater(() -> {
         widgetCapture.translateWidget();
-        //});
-
     }
 
     @Subscribe
-    public void onMenuOpened(MenuOpened event) {
-
-//		MenuEntry[] ev = client.getMenuEntries();
-//		for (MenuEntry e: ev ){
-//			e.setOption(generalFunctions.StringToTags(testString, Colors.fromName("black")));
-//		}
-
+    public void onMenuOpened(MenuOpened event)
+    {
         menuCapture.handleOpenedMenu(event);
     }
 
     @Subscribe
-    public void onMenuEntryAdded(MenuEntryAdded event) {
-        if (targetLanguage == LangCodeSelectableList.ENGLISH) {
+    public void onMenuEntryAdded(MenuEntryAdded event)
+    {
+        if (targetLanguage == LangCodeSelectableList.ENGLISH)
+        {
             return;
         }
         //menuTranslator.handleMenuEvent(event);
     }
 
     @Subscribe
-    public void onChatMessage(ChatMessage event) throws Exception {
-        if (targetLanguage == LangCodeSelectableList.ENGLISH) {
+    public void onChatMessage(ChatMessage event) throws Exception
+    {
+        if (targetLanguage == LangCodeSelectableList.ENGLISH)
+        {
             return;
         }
-        if (client.getGameState() != GameState.LOGGED_IN && client.getGameState() != GameState.HOPPING) {
+        if (client.getGameState() != GameState.LOGGED_IN
+            && client.getGameState() != GameState.HOPPING)
+        {
             return;
         }
         chatCapture.handleChatMessage(event);
-
     }
 
-
     @Subscribe
-    public void onGameStateChanged(GameStateChanged gameStateChanged) {
-        if (targetLanguage == LangCodeSelectableList.ENGLISH) {
+    public void onGameStateChanged(GameStateChanged gameStateChanged)
+    {
+        // todo: main menu translation systems
+        if (targetLanguage == LangCodeSelectableList.ENGLISH)
+        {
             return;
         }
-        if (gameStateChanged.getGameState() == GameState.LOADING) {
+        if (gameStateChanged.getGameState() == GameState.LOADING)
+        {
             interactedObject = null;
         }
     }
 
     @Subscribe
-    public void onConfigChanged(ConfigChanged event) {
+    public void onConfigChanged(ConfigChanged event)
+    {
         // if language is changed
-        if (targetLanguage != config.getSelectedLanguage()) {
+        if (targetLanguage != config.getSelectedLanguage())
+        {
             targetLanguage = config.getSelectedLanguage();
             initLangFiles();
+
             // todo: change the database URL and the connection to it
-            databaseUrl = "jdbc:h2:" + FileNameAndPath.getLocalBaseFolder() + File.separator +
-                    targetLanguage.getLangCode() + File.separator + FileNameAndPath.getLocalSQLFileName();
-            try {
+            databaseUrl = "jdbc:h2:"
+                + FileNameAndPath.getLocalBaseFolder()
+                + File.separator
+                + targetLanguage.getLangCode()
+                + File.separator
+                + FileNameAndPath.getLocalSQLFileName();
+            try
+            {
                 conn = DriverManager.getConnection(databaseUrl);
-            } catch (Exception e) {
-                log.error("Error connecting to database: " + databaseUrl);
-                targetLanguage = LangCodeSelectableList.ENGLISH;
-                e.printStackTrace();
             }
+            catch (Exception e)
+            {
+                log.error("Error connecting to database: {}", databaseUrl);
+                log.error(e.getMessage());
+
+                targetLanguage = LangCodeSelectableList.ENGLISH;
+            }
+
             // download language files and structure language data
             clientToolBar.removeNavigation(navButton);
             boolean charImageChanged = initLangFiles();
-            if (charImageChanged) {
+            if (charImageChanged)
+            {
                 charImageInit.loadCharImages();
             }
 
             // reset language specific variables
-
             overlayManager.remove(mouseTooltipOverlay);
             MouseTooltipOverlay.setAttemptedTranslation(new ArrayList<>());
             overlayManager.add(mouseTooltipOverlay);
 
+            // todo: change this to only happen when user has enabled & used this service
             //reset deepl's past translations
             deepl = new Deepl(this);
 
             restartPanel();
         }
-
     }
 
     @Subscribe
-    public void onNpcDespawned(NpcDespawned npcDespawned) {
-        if (npcDespawned.getNpc() == interactedNpc) {
+    public void onNpcDespawned(NpcDespawned npcDespawned)
+    {
+        if (npcDespawned.getNpc() == interactedNpc)
+        {
             interactedNpc = null;
         }
     }
 
     @Subscribe
-    public void onGameTick(GameTick gameTick) {
-        if (client.getTickCount() > clickTick && client.getLocalDestinationLocation() == null) {
+    public void onGameTick(GameTick gameTick)
+    {
+        if (client.getTickCount() > clickTick
+            && client.getLocalDestinationLocation() == null)
+        {
             // when the destination is reached, clear the interacting object
             interactedObject = null;
             interactedNpc = null;
@@ -311,23 +335,30 @@ public class RuneLingualPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onInteractingChanged(InteractingChanged interactingChanged) {
+    public void onInteractingChanged(InteractingChanged interactingChanged)
+    {
         if (interactingChanged.getSource() == client.getLocalPlayer()
-                && client.getTickCount() > clickTick && interactingChanged.getTarget() != interactedNpc) {
+            && client.getTickCount() > clickTick
+            && interactingChanged.getTarget() != interactedNpc)
+        {
             interactedNpc = null;
-            attacked = interactingChanged.getTarget() != null && interactingChanged.getTarget().getCombatLevel() > 0;
+            attacked = interactingChanged.getTarget() != null
+                && interactingChanged.getTarget().getCombatLevel() > 0;
         }
     }
 
     @Subscribe
-    public void onMenuOptionClicked(MenuOptionClicked menuOptionClicked) {
-        switch (menuOptionClicked.getMenuAction()) {
+    public void onMenuOptionClicked(MenuOptionClicked menuOptionClicked)
+    {
+        switch (menuOptionClicked.getMenuAction())
+        {
             case WIDGET_TARGET_ON_GAME_OBJECT:
             case GAME_OBJECT_FIRST_OPTION:
             case GAME_OBJECT_SECOND_OPTION:
             case GAME_OBJECT_THIRD_OPTION:
             case GAME_OBJECT_FOURTH_OPTION:
-            case GAME_OBJECT_FIFTH_OPTION: {
+            case GAME_OBJECT_FIFTH_OPTION:
+            {
                 int x = menuOptionClicked.getParam0();
                 int y = menuOptionClicked.getParam1();
                 int id = menuOptionClicked.getId();
@@ -342,17 +373,19 @@ public class RuneLingualPlugin extends Plugin {
             case NPC_SECOND_OPTION:
             case NPC_THIRD_OPTION:
             case NPC_FOURTH_OPTION:
-            case NPC_FIFTH_OPTION: {
+            case NPC_FIFTH_OPTION:
+            {
                 interactedObject = null;
                 interactedNpc = menuOptionClicked.getMenuEntry().getNpc();
-                attacked = menuOptionClicked.getMenuAction() == MenuAction.NPC_SECOND_OPTION ||
-                        menuOptionClicked.getMenuAction() == MenuAction.WIDGET_TARGET_ON_NPC
-                                && client.getSelectedWidget() != null
-                                && WidgetUtil.componentToInterface(client.getSelectedWidget().getId()) == InterfaceID.SPELLBOOK;
+                attacked = (menuOptionClicked.getMenuAction() == MenuAction.NPC_SECOND_OPTION
+                    || menuOptionClicked.getMenuAction() == MenuAction.WIDGET_TARGET_ON_NPC
+                        && client.getSelectedWidget() != null
+                        && WidgetUtil.componentToInterface(client.getSelectedWidget().getId()) == InterfaceID.SPELLBOOK);
                 clickTick = client.getTickCount();
                 gameCycle = client.getGameCycle();
                 break;
             }
+
             // Any menu click which clears an interaction
             case WALK:
             case WIDGET_TARGET_ON_WIDGET:
@@ -367,7 +400,8 @@ public class RuneLingualPlugin extends Plugin {
                 interactedNpc = null;
                 break;
             default:
-                if (menuOptionClicked.isItemOp()) {
+                if (menuOptionClicked.isItemOp())
+                {
                     interactedObject = null;
                     interactedNpc = null;
                 }
@@ -375,28 +409,35 @@ public class RuneLingualPlugin extends Plugin {
     }
 
     @Override
-    protected void shutDown() throws Exception {
+    protected void shutDown() throws Exception
+    {
+        // TODO: restore original text strings
+
         clientToolBar.removeNavigation(navButton);
         overlayManager.remove(mouseTooltipOverlay);
         overlayManager.remove(deeplUsageOverlay);
         overlayManager.remove(chatInputOverlay);
         overlayManager.remove(chatInputCandidateOverlay);
+
         log.info("RuneLingual plugin stopped!");
     }
 
 
     @Provides
-    RuneLingualConfig provideConfig(ConfigManager configManager) {
+    RuneLingualConfig provideConfig(ConfigManager configManager)
+    {
         return configManager.getConfig(RuneLingualConfig.class);
     }
 
-    private boolean initLangFiles() {
+    private boolean initLangFiles()
+    {
         //download necessary files
         downloader.setLangCode(targetLanguage.getLangCode());
         return downloader.initDownloader(targetLanguage.getLangCode());
     }
 
-    public void restartPanel() {
+    public void restartPanel()
+    {
         //update Language named folder (which is used to determine what language is selected)
         FileActions.deleteAllLangCodeNamedFile();
         FileActions.createLangCodeNamedFile(config.getSelectedLanguage());
@@ -404,43 +445,51 @@ public class RuneLingualPlugin extends Plugin {
         startPanel();
     }
 
-    private void startPanel() {
+    private void startPanel()
+    {
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "globe.png");
         //panel.setTargetLanguage(config.getSelectedLanguage());
         panel = injector.getInstance(SidePanel.class);
 
         navButton = NavigationButton.builder()
-                .tooltip("RuneLingual")
-                .icon(icon)
-                .priority(6)
-                .panel(panel)
-                .build();
+            .tooltip("RuneLingual")
+            .icon(icon)
+            .priority(6)
+            .panel(panel)
+            .build();
         clientToolBar.addNavigation(navButton);
     }
 
-    TileObject findTileObject(int x, int y, int id) {
+    TileObject findTileObject(int x, int y, int id)
+    {
         Scene scene = client.getScene();
         Tile[][][] tiles = scene.getTiles();
         Tile tile = tiles[client.getPlane()][x][y];
-        if (tile != null) {
-            for (GameObject gameObject : tile.getGameObjects()) {
-                if (gameObject != null && gameObject.getId() == id) {
+        if (tile != null)
+        {
+            for (GameObject gameObject : tile.getGameObjects())
+            {
+                if (gameObject != null && gameObject.getId() == id)
+                {
                     return gameObject;
                 }
             }
 
             WallObject wallObject = tile.getWallObject();
-            if (wallObject != null && wallObject.getId() == id) {
+            if (wallObject != null && wallObject.getId() == id)
+            {
                 return wallObject;
             }
 
             DecorativeObject decorativeObject = tile.getDecorativeObject();
-            if (decorativeObject != null && decorativeObject.getId() == id) {
+            if (decorativeObject != null && decorativeObject.getId() == id)
+            {
                 return decorativeObject;
             }
 
             GroundObject groundObject = tile.getGroundObject();
-            if (groundObject != null && groundObject.getId() == id) {
+            if (groundObject != null && groundObject.getId() == id)
+            {
                 return groundObject;
             }
         }
@@ -448,9 +497,8 @@ public class RuneLingualPlugin extends Plugin {
     }
 
     @Nullable
-    Actor getInteractedTarget() {
+    Actor getInteractedTarget()
+    {
         return interactedNpc != null ? interactedNpc : client.getLocalPlayer().getInteracting();
     }
-
 }
-
